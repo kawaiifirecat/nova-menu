@@ -1,587 +1,772 @@
--- ====================================================
---   NOVA MENU  |  Dark Violet Edition
---   loadstring(game:HttpGet('RAW_URL'))()
--- ====================================================
+-- ================================================================
+--   NOVA MENU  v2  |  Ultimate Edition
+--   loadstring(game:HttpGet('https://raw.githubusercontent.com/kawaiifirecat/nova-menu/main/nova_menu.lua'))()
+-- ================================================================
 
-local Players         = game:GetService("Players")
-local TweenService    = game:GetService("TweenService")
-local UserInputService= game:GetService("UserInputService")
-local RunService      = game:GetService("RunService")
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
+local Lighting         = game:GetService("Lighting")
 
-local LP   = Players.LocalPlayer
-local Mouse = LP:GetMouse()
+local LP  = Players.LocalPlayer
+local Cam = workspace.CurrentCamera
 
--- Cleanup si déjà chargé
 if game.CoreGui:FindFirstChild("NOVA_MENU") then
     game.CoreGui.NOVA_MENU:Destroy()
 end
 
--- ====================================================
---   PALETTE
--- ====================================================
+-- ================================================================
+--   PALETTE & CONFIG
+-- ================================================================
 local C = {
-    BG      = Color3.fromRGB(8,   8,  18),
-    BG2     = Color3.fromRGB(14,  14, 28),
-    BG3     = Color3.fromRGB(22,  20, 42),
-    ACCENT  = Color3.fromRGB(120,  55, 255),
-    ACCENT2 = Color3.fromRGB(180,  80, 255),
-    PINK    = Color3.fromRGB(220,  75, 200),
-    TEXT    = Color3.fromRGB(230, 225, 245),
-    SUB     = Color3.fromRGB(120, 110, 155),
-    GREEN   = Color3.fromRGB( 70, 220, 130),
-    RED     = Color3.fromRGB(220,  70,  80),
-    YELLOW  = Color3.fromRGB(255, 200,  55),
+    BG      = Color3.fromRGB(7,   7,  16),
+    BG2     = Color3.fromRGB(13,  13, 26),
+    BG3     = Color3.fromRGB(21,  19, 42),
+    ACCENT  = Color3.fromRGB(110,  50, 245),
+    ACCENT2 = Color3.fromRGB(168,  74, 255),
+    PINK    = Color3.fromRGB(215,  68, 195),
+    TEXT    = Color3.fromRGB(228, 222, 245),
+    SUB     = Color3.fromRGB(112, 102, 148),
+    GREEN   = Color3.fromRGB( 62, 212, 122),
+    RED     = Color3.fromRGB(212,  62,  74),
+    YELLOW  = Color3.fromRGB(250, 192,  48),
+    ORANGE  = Color3.fromRGB(250, 138,  48),
+    CYAN    = Color3.fromRGB( 48, 212, 220),
 }
 
 local FB = Enum.Font.GothamBold
 local FS = Enum.Font.GothamSemibold
 local FR = Enum.Font.Gotham
+local FC = Enum.Font.Code
 
-local function tw(obj, props, info)
-    TweenService:Create(obj, info or TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+local TI_FAST  = TweenInfo.new(0.15, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
+local TI_SLIDE = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local TI_OPEN  = TweenInfo.new(0.42, Enum.EasingStyle.Back,  Enum.EasingDirection.Out)
+
+local W, H = 318, 480
+
+-- ================================================================
+--   STATE
+-- ================================================================
+local S = {
+    noclip=false, infjump=false, fly=false,
+    autoheal=false, god=false, esp=false,
+    antiaafk=false, crosshair=false, fullbright=false,
+}
+local KB = {}  -- [KeyCode] = toggle function
+
+-- ================================================================
+--   HELPERS
+-- ================================================================
+local function tw(o,p,i) TweenService:Create(o,i or TI_FAST,p):Play() end
+
+local function corner(p,r)
+    local c=Instance.new("UICorner",p); c.CornerRadius=UDim.new(0,r or 10); return c
 end
-local function corner(p, r)  local c=Instance.new("UICorner",p); c.CornerRadius=UDim.new(0,r or 10); return c end
-local function uistroke(p,col,th) local s=Instance.new("UIStroke",p); s.Color=col; s.Thickness=th or 1.5; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; return s end
 
--- ====================================================
+local function mkstroke(p,col,th)
+    local s=Instance.new("UIStroke",p)
+    s.Color=col; s.Thickness=th or 1.5
+    s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+    return s
+end
+
+local function mklabel(p,txt,sz,fnt,col,xa)
+    local l=Instance.new("TextLabel",p)
+    l.BackgroundTransparency=1; l.Text=txt; l.TextSize=sz or 12
+    l.Font=fnt or FR; l.TextColor3=col or C.TEXT
+    l.TextXAlignment=xa or Enum.TextXAlignment.Left
+    l.Size=UDim2.new(1,0,1,0)
+    return l
+end
+
+-- ================================================================
 --   GUI ROOT
--- ====================================================
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "NOVA_MENU"
-Gui.ResetOnSpawn = false
-Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Gui.Parent = game.CoreGui
+-- ================================================================
+local Gui=Instance.new("ScreenGui")
+Gui.Name="NOVA_MENU"; Gui.ResetOnSpawn=false
+Gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+Gui.IgnoreGuiInset=true; Gui.Parent=game.CoreGui
 
--- ====================================================
---   SYSTÈME DE NOTIFICATIONS
--- ====================================================
-local NHolder = Instance.new("Frame", Gui)
-NHolder.Size = UDim2.new(0, 265, 1, 0)
-NHolder.Position = UDim2.new(1, -275, 0, 0)
-NHolder.BackgroundTransparency = 1
-NHolder.BorderSizePixel = 0
-local NLayout = Instance.new("UIListLayout", NHolder)
-NLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-NLayout.Padding = UDim.new(0, 6)
-local NPad = Instance.new("UIPadding", NHolder)
-NPad.PaddingBottom = UDim.new(0, 14)
+-- ================================================================
+--   TOAST NOTIFICATIONS
+-- ================================================================
+local NH=Instance.new("Frame",Gui)
+NH.Size=UDim2.new(0,255,1,0)
+NH.Position=UDim2.new(1,-265,0,0)
+NH.BackgroundTransparency=1; NH.BorderSizePixel=0
+local NL=Instance.new("UIListLayout",NH)
+NL.VerticalAlignment=Enum.VerticalAlignment.Bottom; NL.Padding=UDim.new(0,5)
+local NP=Instance.new("UIPadding",NH); NP.PaddingBottom=UDim.new(0,75)
 
-local function notify(title, msg, ntype)
-    local col = ntype == "success" and C.GREEN or ntype == "error" and C.RED or C.ACCENT
-    local n = Instance.new("Frame", NHolder)
-    n.Size = UDim2.new(1, 0, 0, 58)
-    n.BackgroundColor3 = C.BG2
-    n.BorderSizePixel = 0
-    n.BackgroundTransparency = 1
-    corner(n, 9)
-    uistroke(n, col, 1.5)
-
-    local bar = Instance.new("Frame", n)
-    bar.Size = UDim2.new(0, 3, 1, -14); bar.Position = UDim2.new(0, 8, 0, 7)
-    bar.BackgroundColor3 = col; bar.BorderSizePixel = 0; corner(bar, 2)
-
-    local t = Instance.new("TextLabel", n)
-    t.Size = UDim2.new(1,-26,0,16); t.Position = UDim2.new(0,18,0,8)
-    t.BackgroundTransparency=1; t.Text=title; t.TextSize=12; t.Font=FB
-    t.TextColor3=col; t.TextXAlignment=Enum.TextXAlignment.Left
-
-    local m = Instance.new("TextLabel", n)
-    m.Size = UDim2.new(1,-26,0,24); m.Position = UDim2.new(0,18,0,26)
-    m.BackgroundTransparency=1; m.Text=msg; m.TextSize=11; m.Font=FR
-    m.TextColor3=C.SUB; m.TextXAlignment=Enum.TextXAlignment.Left; m.TextWrapped=true
-
-    tw(n, {BackgroundTransparency = 0})
-    task.delay(3.2, function()
-        tw(n, {BackgroundTransparency = 1})
-        task.wait(0.22); n:Destroy()
-    end)
+local function notify(title,msg,ntype)
+    local col=({on=C.GREEN,off=C.RED,warn=C.YELLOW})[ntype] or C.ACCENT
+    local n=Instance.new("Frame",NH)
+    n.Size=UDim2.new(1,0,0,52); n.BackgroundColor3=C.BG2
+    n.BorderSizePixel=0; n.BackgroundTransparency=1
+    corner(n,8); mkstroke(n,col,1.5)
+    local bar=Instance.new("Frame",n)
+    bar.Size=UDim2.new(0,3,1,-12); bar.Position=UDim2.new(0,7,0,6)
+    bar.BackgroundColor3=col; bar.BorderSizePixel=0; corner(bar,2)
+    local t=mklabel(n,title,11,FB,col)
+    t.Size=UDim2.new(1,-22,0,14); t.Position=UDim2.new(0,16,0,6)
+    local m=mklabel(n,msg,10,FR,C.SUB)
+    m.Size=UDim2.new(1,-22,0,22); m.Position=UDim2.new(0,16,0,22); m.TextWrapped=true
+    tw(n,{BackgroundTransparency=0})
+    task.delay(3,function() tw(n,{BackgroundTransparency=1}); task.wait(0.2); n:Destroy() end)
 end
 
--- ====================================================
---   CADRE PRINCIPAL
--- ====================================================
-local Main = Instance.new("Frame", Gui)
-Main.Name = "Main"
-Main.Size = UDim2.new(0, 345, 0, 468)
-Main.Position = UDim2.new(0.5, -172, 1.5, 0)
-Main.BackgroundColor3 = C.BG
-Main.BorderSizePixel = 0
-corner(Main, 14)
-uistroke(Main, C.ACCENT, 1.5)
+-- ================================================================
+--   HUD — ACTIVE FEATURES WINDOW (draggable)
+-- ================================================================
+local HUD=Instance.new("Frame",Gui)
+HUD.Name="HUD"; HUD.Size=UDim2.new(0,175,0,28)
+HUD.Position=UDim2.new(0,10,1,-46)
+HUD.BackgroundColor3=C.BG2; HUD.BorderSizePixel=0
+HUD.AutomaticSize=Enum.AutomaticSize.Y
+corner(HUD,8); mkstroke(HUD,C.ACCENT,1)
 
-local grad = Instance.new("UIGradient", Main)
-grad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, C.BG),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 6, 26)),
+local HTop=Instance.new("Frame",HUD)
+HTop.Size=UDim2.new(1,0,0,22); HTop.BackgroundColor3=C.BG3
+HTop.BorderSizePixel=0; corner(HTop,8)
+do local f=Instance.new("Frame",HTop); f.Size=UDim2.new(1,0,0.5,0)
+   f.Position=UDim2.new(0,0,0.5,0); f.BackgroundColor3=C.BG3; f.BorderSizePixel=0 end
+
+local HTitle=mklabel(HTop,"◆  ACTIVE FEATURES",9,FB,C.ACCENT)
+HTitle.Position=UDim2.new(0,8,0,0)
+
+local HList=Instance.new("Frame",HUD)
+HList.Size=UDim2.new(1,-12,0,0); HList.Position=UDim2.new(0,6,0,26)
+HList.BackgroundTransparency=1; HList.BorderSizePixel=0
+HList.AutomaticSize=Enum.AutomaticSize.Y
+local HLL=Instance.new("UIListLayout",HList)
+HLL.Padding=UDim.new(0,2); HLL.SortOrder=Enum.SortOrder.LayoutOrder
+local HP=Instance.new("UIPadding",HList); HP.PaddingBottom=UDim.new(0,6)
+
+local HEntries={}
+local function hudOn(key,name,col)
+    if HEntries[key] then return end
+    local row=Instance.new("Frame",HList)
+    row.Size=UDim2.new(1,0,0,15); row.BackgroundTransparency=1; row.BorderSizePixel=0
+    local dot=Instance.new("Frame",row)
+    dot.Size=UDim2.new(0,6,0,6); dot.Position=UDim2.new(0,0,0.5,-3)
+    dot.BackgroundColor3=col; dot.BorderSizePixel=0; corner(dot,3)
+    local l=mklabel(row,name,10,FS,C.TEXT)
+    l.Position=UDim2.new(0,10,0,0); l.Size=UDim2.new(1,-10,1,0)
+    HEntries[key]=row
+end
+local function hudOff(key)
+    if HEntries[key] then HEntries[key]:Destroy(); HEntries[key]=nil end
+end
+
+-- HUD drag
+do local drag,ds,sp=false
+    HTop.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 then
+            drag=true; ds=i.Position; sp=HUD.Position end end)
+    HTop.InputEnded:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end)
+    UserInputService.InputChanged:Connect(function(i)
+        if drag and i.UserInputType==Enum.UserInputType.MouseMovement then
+            local d=i.Position-ds
+            HUD.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y) end end)
+end
+
+-- ================================================================
+--   SIDEBAR TAB (always visible on right edge)
+-- ================================================================
+local SideTab=Instance.new("TextButton",Gui)
+SideTab.Size=UDim2.new(0,32,0,108)
+SideTab.Position=UDim2.new(1,-32,0.5,-54)
+SideTab.BackgroundColor3=C.BG2; SideTab.Text=""
+SideTab.BorderSizePixel=0; SideTab.ZIndex=10
+corner(SideTab,8); mkstroke(SideTab,C.ACCENT,1.5)
+
+local SideLbl=Instance.new("TextLabel",SideTab)
+SideLbl.Size=UDim2.new(1,0,1,-18); SideLbl.Position=UDim2.new(0,0,0,4)
+SideLbl.BackgroundTransparency=1; SideLbl.Text="N\nO\nV\nA"
+SideLbl.TextSize=10; SideLbl.Font=FB; SideLbl.TextColor3=C.ACCENT2
+SideLbl.TextXAlignment=Enum.TextXAlignment.Center
+
+local SideArr=Instance.new("TextLabel",SideTab)
+SideArr.Size=UDim2.new(1,0,0,16); SideArr.Position=UDim2.new(0,0,1,-18)
+SideArr.BackgroundTransparency=1; SideArr.Text="‹"
+SideArr.TextSize=16; SideArr.Font=FB; SideArr.TextColor3=C.SUB
+SideArr.TextXAlignment=Enum.TextXAlignment.Center
+
+SideTab.MouseEnter:Connect(function() tw(SideTab,{BackgroundColor3=C.BG3}) end)
+SideTab.MouseLeave:Connect(function() tw(SideTab,{BackgroundColor3=C.BG2}) end)
+
+-- ================================================================
+--   MAIN PANEL
+-- ================================================================
+local Main=Instance.new("Frame",Gui)
+Main.Name="Main"; Main.Size=UDim2.new(0,W,0,H)
+Main.BackgroundColor3=C.BG; Main.BorderSizePixel=0
+corner(Main,12); mkstroke(Main,C.ACCENT,1.5)
+local mGrad=Instance.new("UIGradient",Main)
+mGrad.Color=ColorSequence.new({
+    ColorSequenceKeypoint.new(0,C.BG),
+    ColorSequenceKeypoint.new(1,Color3.fromRGB(9,6,22)),
+}); mGrad.Rotation=138
+
+local POS_HIDE = UDim2.new(1,10,0.5,-(H/2))
+local POS_SHOW = UDim2.new(1,-(W+38),0.5,-(H/2))
+Main.Position = POS_HIDE
+
+local menuOpen=false
+local function toggleMenu()
+    menuOpen=not menuOpen
+    if menuOpen then
+        tw(Main,{Position=POS_SHOW},TI_SLIDE)
+        SideArr.Text="›"; tw(SideArr,{TextColor3=C.ACCENT})
+    else
+        tw(Main,{Position=POS_HIDE},TI_SLIDE)
+        SideArr.Text="‹"; tw(SideArr,{TextColor3=C.SUB})
+    end
+end
+SideTab.MouseButton1Click:Connect(toggleMenu)
+
+-- ================================================================
+--   TOPBAR
+-- ================================================================
+local TopBar=Instance.new("Frame",Main)
+TopBar.Size=UDim2.new(1,0,0,40); TopBar.BackgroundColor3=C.BG2
+TopBar.BorderSizePixel=0; corner(TopBar,12)
+do local f=Instance.new("Frame",TopBar); f.Size=UDim2.new(1,0,0.5,0)
+   f.Position=UDim2.new(0,0,0.5,0); f.BackgroundColor3=C.BG2; f.BorderSizePixel=0 end
+
+local AccLine=Instance.new("Frame",Main)
+AccLine.Size=UDim2.new(1,-32,0,1); AccLine.Position=UDim2.new(0,16,0,40)
+AccLine.BackgroundColor3=C.ACCENT; AccLine.BorderSizePixel=0
+local alG=Instance.new("UIGradient",AccLine)
+alG.Color=ColorSequence.new({
+    ColorSequenceKeypoint.new(0,C.BG),
+    ColorSequenceKeypoint.new(0.3,C.ACCENT),
+    ColorSequenceKeypoint.new(0.7,C.ACCENT2),
+    ColorSequenceKeypoint.new(1,C.BG),
 })
-grad.Rotation = 135
 
--- ====================================================
---   TOP BAR
--- ====================================================
-local TopBar = Instance.new("Frame", Main)
-TopBar.Size = UDim2.new(1, 0, 0, 44)
-TopBar.BackgroundColor3 = C.BG2
-TopBar.BorderSizePixel = 0
-corner(TopBar, 14)
-
--- fix coins bas topbar
-local TBFix = Instance.new("Frame", TopBar)
-TBFix.Size = UDim2.new(1, 0, 0.5, 0); TBFix.Position = UDim2.new(0,0,0.5,0)
-TBFix.BackgroundColor3 = C.BG2; TBFix.BorderSizePixel = 0
-
--- ligne accent dégradée
-local AccLine = Instance.new("Frame", Main)
-AccLine.Size = UDim2.new(1,-40,0,1); AccLine.Position = UDim2.new(0,20,0,44)
-AccLine.BackgroundColor3 = C.ACCENT; AccLine.BorderSizePixel = 0
-local alGrad = Instance.new("UIGradient", AccLine)
-alGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, C.BG),
-    ColorSequenceKeypoint.new(0.25, C.ACCENT),
-    ColorSequenceKeypoint.new(0.75, C.ACCENT2),
-    ColorSequenceKeypoint.new(1, C.BG),
-})
-
--- Titre avec gradient
-local TitleLbl = Instance.new("TextLabel", TopBar)
-TitleLbl.Size = UDim2.new(1,-82,1,0); TitleLbl.Position = UDim2.new(0,14,0,0)
-TitleLbl.BackgroundTransparency=1; TitleLbl.Text="✦  NOVA  MENU"
-TitleLbl.TextSize=15; TitleLbl.Font=FB; TitleLbl.TextColor3=C.TEXT
-TitleLbl.TextXAlignment=Enum.TextXAlignment.Left
-local tGrad = Instance.new("UIGradient", TitleLbl)
-tGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0,  C.ACCENT2),
+local TitleLbl=mklabel(TopBar,"✦  NOVA  MENU",14,FB,C.TEXT)
+TitleLbl.Size=UDim2.new(1,-72,1,0); TitleLbl.Position=UDim2.new(0,12,0,0)
+local tGrd=Instance.new("UIGradient",TitleLbl)
+tGrd.Color=ColorSequence.new({
+    ColorSequenceKeypoint.new(0,C.ACCENT2),
     ColorSequenceKeypoint.new(0.5,C.TEXT),
-    ColorSequenceKeypoint.new(1,  C.PINK),
+    ColorSequenceKeypoint.new(1,C.PINK),
 })
 
--- Badge version
-local VerBadge = Instance.new("TextLabel", TopBar)
-VerBadge.Size = UDim2.new(0,28,0,14); VerBadge.Position = UDim2.new(0,128,0.5,-7)
-VerBadge.BackgroundColor3 = C.ACCENT; VerBadge.Text="v1"
-VerBadge.TextSize=9; VerBadge.Font=FB; VerBadge.TextColor3=C.TEXT
-VerBadge.BorderSizePixel=0; corner(VerBadge,4)
+local VerBadge=Instance.new("TextLabel",TopBar)
+VerBadge.Size=UDim2.new(0,24,0,12); VerBadge.Position=UDim2.new(0,124,0.5,-6)
+VerBadge.BackgroundColor3=C.ACCENT; VerBadge.Text="v2"; VerBadge.TextSize=8
+VerBadge.Font=FB; VerBadge.TextColor3=C.TEXT; VerBadge.BorderSizePixel=0; corner(VerBadge,3)
 
--- Bouton minimiser
-local MinBtn = Instance.new("TextButton", TopBar)
-MinBtn.Size = UDim2.new(0,28,0,28); MinBtn.Position = UDim2.new(1,-66,0.5,-14)
-MinBtn.BackgroundColor3 = C.BG3; MinBtn.Text="—"
-MinBtn.TextColor3=C.SUB; MinBtn.TextSize=12; MinBtn.Font=FB
-MinBtn.BorderSizePixel=0; corner(MinBtn,6)
-
--- Bouton fermer
-local CloseBtn = Instance.new("TextButton", TopBar)
-CloseBtn.Size = UDim2.new(0,28,0,28); CloseBtn.Position = UDim2.new(1,-34,0.5,-14)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(175,35,55); CloseBtn.Text="✕"
-CloseBtn.TextColor3=C.TEXT; CloseBtn.TextSize=12; CloseBtn.Font=FB
-CloseBtn.BorderSizePixel=0; corner(CloseBtn,6)
+local function mkTopBtn(x,txt,bg)
+    local b=Instance.new("TextButton",TopBar)
+    b.Size=UDim2.new(0,24,0,24); b.Position=UDim2.new(1,x,0.5,-12)
+    b.BackgroundColor3=bg; b.Text=txt; b.TextColor3=C.TEXT
+    b.TextSize=10; b.Font=FB; b.BorderSizePixel=0; corner(b,5)
+    return b
+end
+local MinBtn   = mkTopBtn(-58,"—",C.BG3)
+local CloseBtn = mkTopBtn(-30,"✕",Color3.fromRGB(168,30,50))
 
 CloseBtn.MouseButton1Click:Connect(function()
-    tw(Main, {Position=UDim2.new(0.5,-172,1.5,0)}, TweenInfo.new(0.3,Enum.EasingStyle.Back,Enum.EasingDirection.In))
-    task.wait(0.35); Gui:Destroy()
+    tw(Main,{Position=POS_HIDE},TI_SLIDE)
+    menuOpen=false; SideArr.Text="‹"; tw(SideArr,{TextColor3=C.SUB})
 end)
 
-local minimized = false
+local mini=false
 MinBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    tw(Main, {Size = minimized and UDim2.new(0,345,0,44) or UDim2.new(0,345,0,468)})
-    MinBtn.Text = minimized and "□" or "—"
+    mini=not mini
+    tw(Main,{Size=mini and UDim2.new(0,W,0,40) or UDim2.new(0,W,0,H)})
+    MinBtn.Text=mini and "□" or "—"
 end)
 
--- ====================================================
---   INFOS JOUEUR
--- ====================================================
-local PIFrame = Instance.new("Frame", Main)
-PIFrame.Size=UDim2.new(1,-20,0,36); PIFrame.Position=UDim2.new(0,10,0,52)
-PIFrame.BackgroundColor3=C.BG2; PIFrame.BorderSizePixel=0; corner(PIFrame,8)
+-- ================================================================
+--   PLAYER INFO BAR
+-- ================================================================
+local PIBar=Instance.new("Frame",Main)
+PIBar.Size=UDim2.new(1,-18,0,28); PIBar.Position=UDim2.new(0,9,0,48)
+PIBar.BackgroundColor3=C.BG2; PIBar.BorderSizePixel=0; corner(PIBar,6)
+local piN=mklabel(PIBar,"◆  "..LP.Name,11,FS,C.TEXT)
+piN.Position=UDim2.new(0,10,0,0); piN.Size=UDim2.new(0.58,0,1,0)
+local piS=mklabel(PIBar,"● ONLINE",10,FB,C.GREEN)
+piS.Position=UDim2.new(0.58,0,0,0); piS.Size=UDim2.new(0.42,-8,1,0)
+piS.TextXAlignment=Enum.TextXAlignment.Right
 
-local PIName = Instance.new("TextLabel", PIFrame)
-PIName.Size=UDim2.new(0.62,0,1,0); PIName.Position=UDim2.new(0,12,0,0)
-PIName.BackgroundTransparency=1; PIName.Text="👤  "..LP.Name
-PIName.TextSize=12; PIName.Font=FS; PIName.TextColor3=C.TEXT
-PIName.TextXAlignment=Enum.TextXAlignment.Left
+-- ================================================================
+--   TAB BAR
+-- ================================================================
+local TabBar=Instance.new("Frame",Main)
+TabBar.Size=UDim2.new(1,-18,0,26); TabBar.Position=UDim2.new(0,9,0,84)
+TabBar.BackgroundColor3=C.BG2; TabBar.BorderSizePixel=0; corner(TabBar,6)
+local TBL=Instance.new("UIListLayout",TabBar)
+TBL.FillDirection=Enum.FillDirection.Horizontal
+TBL.Padding=UDim.new(0,2); TBL.SortOrder=Enum.SortOrder.LayoutOrder
+local TBP=Instance.new("UIPadding",TabBar)
+TBP.PaddingLeft=UDim.new(0,3); TBP.PaddingRight=UDim.new(0,3)
+TBP.PaddingTop=UDim.new(0,3); TBP.PaddingBottom=UDim.new(0,3)
 
-local PIStatus = Instance.new("TextLabel", PIFrame)
-PIStatus.Size=UDim2.new(0.38,-8,1,0); PIStatus.Position=UDim2.new(0.62,0,0,0)
-PIStatus.BackgroundTransparency=1; PIStatus.Text="● ACTIF"
-PIStatus.TextSize=11; PIStatus.Font=FB; PIStatus.TextColor3=C.GREEN
-PIStatus.TextXAlignment=Enum.TextXAlignment.Right
+-- content area
+local ContentArea=Instance.new("Frame",Main)
+ContentArea.Size=UDim2.new(1,-18,1,-122); ContentArea.Position=UDim2.new(0,9,0,118)
+ContentArea.BackgroundTransparency=1; ContentArea.ClipsDescendants=true
 
--- ====================================================
---   BARRE D'ONGLETS
--- ====================================================
-local TabBar = Instance.new("Frame", Main)
-TabBar.Size=UDim2.new(1,-20,0,32); TabBar.Position=UDim2.new(0,10,0,96)
-TabBar.BackgroundColor3=C.BG2; TabBar.BorderSizePixel=0; corner(TabBar,8)
-local TabLayout = Instance.new("UIListLayout", TabBar)
-TabLayout.FillDirection=Enum.FillDirection.Horizontal
-TabLayout.Padding=UDim.new(0,3); TabLayout.SortOrder=Enum.SortOrder.LayoutOrder
-local TabPad = Instance.new("UIPadding", TabBar)
-TabPad.PaddingLeft=UDim.new(0,4); TabPad.PaddingRight=UDim.new(0,4)
-TabPad.PaddingTop=UDim.new(0,4);  TabPad.PaddingBottom=UDim.new(0,4)
+-- ================================================================
+--   TAB FACTORY
+-- ================================================================
+local tabs={}
+local function newTab(name)
+    local Btn=Instance.new("TextButton",TabBar)
+    Btn.Size=UDim2.new(0.25,-2,1,0); Btn.BackgroundColor3=C.BG3
+    Btn.Text=name; Btn.TextSize=10; Btn.Font=FS; Btn.TextColor3=C.SUB
+    Btn.BorderSizePixel=0; corner(Btn,4)
 
--- Zone de scroll
-local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Size=UDim2.new(1,-20,1,-148); Scroll.Position=UDim2.new(0,10,0,136)
-Scroll.BackgroundTransparency=1; Scroll.BorderSizePixel=0
-Scroll.ScrollBarThickness=3; Scroll.ScrollBarImageColor3=C.ACCENT
-Scroll.CanvasSize=UDim2.new(0,0,0,0); Scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
-local ScrollLayout = Instance.new("UIListLayout", Scroll)
-ScrollLayout.Padding=UDim.new(0,5); ScrollLayout.SortOrder=Enum.SortOrder.LayoutOrder
+    local Scroll=Instance.new("ScrollingFrame",ContentArea)
+    Scroll.Size=UDim2.new(1,0,1,0); Scroll.BackgroundTransparency=1
+    Scroll.BorderSizePixel=0; Scroll.ScrollBarThickness=3
+    Scroll.ScrollBarImageColor3=C.ACCENT
+    Scroll.CanvasSize=UDim2.new(0,0,0,0)
+    Scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    Scroll.Visible=false
 
--- ====================================================
---   FACTORY ONGLETS
--- ====================================================
-local tabs = {}
+    local SL=Instance.new("UIListLayout",Scroll)
+    SL.Padding=UDim.new(0,4); SL.SortOrder=Enum.SortOrder.LayoutOrder
 
-local function newTab(name, emoji)
-    local Btn = Instance.new("TextButton", TabBar)
-    Btn.Size=UDim2.new(0,78,1,0)
-    Btn.BackgroundColor3=C.BG3; Btn.Text=emoji.." "..name
-    Btn.TextSize=11; Btn.Font=FS; Btn.TextColor3=C.SUB
-    Btn.BorderSizePixel=0; corner(Btn,6)
-
-    local Container = Instance.new("Frame", Scroll)
-    Container.Size=UDim2.new(1,0,1,0); Container.BackgroundTransparency=1; Container.Visible=false
-    local CL = Instance.new("UIListLayout", Container)
-    CL.Padding=UDim.new(0,5); CL.SortOrder=Enum.SortOrder.LayoutOrder
-
-    local tab = {btn=Btn, cont=Container}
-    tabs[name] = tab
+    local tab={btn=Btn,scroll=Scroll}
+    tabs[name]=tab
 
     Btn.MouseButton1Click:Connect(function()
-        for _, t in pairs(tabs) do
-            t.cont.Visible=false
-            tw(t.btn, {BackgroundColor3=C.BG3, TextColor3=C.SUB})
+        for _,t in pairs(tabs) do
+            t.scroll.Visible=false
+            tw(t.btn,{BackgroundColor3=C.BG3,TextColor3=C.SUB})
         end
-        Container.Visible=true
-        tw(Btn, {BackgroundColor3=C.ACCENT, TextColor3=C.TEXT})
+        Scroll.Visible=true
+        tw(Btn,{BackgroundColor3=C.ACCENT,TextColor3=C.TEXT})
     end)
     return tab
 end
 
--- ====================================================
---   FACTORY SECTION HEADER
--- ====================================================
-local function newSection(tab, title, order)
-    local F = Instance.new("Frame", tab.cont)
-    F.Size=UDim2.new(1,0,0,24); F.BackgroundTransparency=1; F.LayoutOrder=order or 0
-
-    local L = Instance.new("TextLabel", F)
-    L.Size=UDim2.new(1,0,1,0); L.BackgroundTransparency=1
-    L.Text="  "..string.upper(title); L.TextSize=10; L.Font=FB
-    L.TextColor3=C.ACCENT; L.TextXAlignment=Enum.TextXAlignment.Left
-
-    local Line = Instance.new("Frame", F)
-    Line.Size=UDim2.new(1,-8,0,1); Line.Position=UDim2.new(0,4,1,-1)
-    Line.BackgroundColor3=C.BG3; Line.BorderSizePixel=0
+-- ================================================================
+--   WIDGET FACTORIES
+-- ================================================================
+local function newSection(tab,title,order)
+    local F=Instance.new("Frame",tab.scroll)
+    F.Size=UDim2.new(1,0,0,20); F.BackgroundTransparency=1; F.LayoutOrder=order or 0
+    local L=mklabel(F,"  "..string.upper(title),9,FB,C.ACCENT)
+    local Ln=Instance.new("Frame",F)
+    Ln.Size=UDim2.new(1,-6,0,1); Ln.Position=UDim2.new(0,3,1,-1)
+    Ln.BackgroundColor3=C.BG3; Ln.BorderSizePixel=0
 end
 
--- ====================================================
---   FACTORY TOGGLE
--- ====================================================
-local function newToggle(tab, name, emoji, col, onOn, onOff, order)
-    local on = false
+local function kbText(kc)
+    if not kc then return "" end
+    return tostring(kc):match("KeyCode%.(.+)") or ""
+end
 
-    local Btn = Instance.new("TextButton", tab.cont)
-    Btn.Size=UDim2.new(1,0,0,46); Btn.BackgroundColor3=C.BG2
-    Btn.Text=""; Btn.BorderSizePixel=0; Btn.LayoutOrder=order or 0; corner(Btn,9)
-    local BStroke = uistroke(Btn, C.BG3, 1.5)
+local function newToggle(tab,name,col,hudKey,kc,onOn,onOff,order)
+    local on=false
+    local Btn=Instance.new("TextButton",tab.scroll)
+    Btn.Size=UDim2.new(1,0,0,40); Btn.BackgroundColor3=C.BG2
+    Btn.Text=""; Btn.BorderSizePixel=0; Btn.LayoutOrder=order or 0; corner(Btn,8)
+    local BS=mkstroke(Btn,C.BG3,1.5)
 
-    local Ico = Instance.new("TextLabel", Btn)
-    Ico.Size=UDim2.new(0,34,1,0); Ico.Position=UDim2.new(0,7,0,0)
-    Ico.BackgroundTransparency=1; Ico.Text=emoji; Ico.TextSize=19; Ico.Font=FR; Ico.TextColor3=col
+    local Lbl=mklabel(Btn,name,12,FS,C.TEXT)
+    Lbl.Position=UDim2.new(0,10,0,0); Lbl.Size=UDim2.new(1,-90,1,0)
 
-    local Lbl = Instance.new("TextLabel", Btn)
-    Lbl.Size=UDim2.new(1,-110,1,0); Lbl.Position=UDim2.new(0,44,0,0)
-    Lbl.BackgroundTransparency=1; Lbl.Text=name
-    Lbl.TextSize=13; Lbl.Font=FS; Lbl.TextColor3=C.TEXT
-    Lbl.TextXAlignment=Enum.TextXAlignment.Left
+    local KBF=Instance.new("Frame",Btn)
+    KBF.Size=UDim2.new(0,28,0,15); KBF.Position=UDim2.new(1,-74,0.5,-7.5)
+    KBF.BackgroundColor3=C.BG3; KBF.BorderSizePixel=0; corner(KBF,3)
+    local KBL=mklabel(KBF,kbText(kc),8,FB,C.SUB)
+    KBL.TextXAlignment=Enum.TextXAlignment.Center
 
-    local Track = Instance.new("Frame", Btn)
-    Track.Size=UDim2.new(0,34,0,18); Track.Position=UDim2.new(1,-44,0.5,-9)
-    Track.BackgroundColor3=C.BG3; Track.BorderSizePixel=0; corner(Track,9)
-
-    local Thumb = Instance.new("Frame", Track)
-    Thumb.Size=UDim2.new(0,12,0,12); Thumb.Position=UDim2.new(0,3,0.5,-6)
+    local Track=Instance.new("Frame",Btn)
+    Track.Size=UDim2.new(0,30,0,15); Track.Position=UDim2.new(1,-38,0.5,-7.5)
+    Track.BackgroundColor3=C.BG3; Track.BorderSizePixel=0; corner(Track,8)
+    local Thumb=Instance.new("Frame",Track)
+    Thumb.Size=UDim2.new(0,11,0,11); Thumb.Position=UDim2.new(0,2,0.5,-5.5)
     Thumb.BackgroundColor3=C.SUB; Thumb.BorderSizePixel=0; corner(Thumb,6)
-
-    local SLbl = Instance.new("TextLabel", Btn)
-    SLbl.Size=UDim2.new(0,28,0,14); SLbl.Position=UDim2.new(1,-80,0.5,-7)
-    SLbl.BackgroundTransparency=1; SLbl.Text="OFF"; SLbl.TextSize=10; SLbl.Font=FB
-    SLbl.TextColor3=C.SUB; SLbl.TextXAlignment=Enum.TextXAlignment.Center
 
     Btn.MouseEnter:Connect(function() if not on then tw(Btn,{BackgroundColor3=C.BG3}) end end)
     Btn.MouseLeave:Connect(function() if not on then tw(Btn,{BackgroundColor3=C.BG2}) end end)
 
+    local function activate()
+        on=true
+        tw(Btn,{BackgroundColor3=Color3.fromRGB(15,9,30)})
+        tw(BS,{Color=col}); tw(Lbl,{TextColor3=col})
+        tw(Track,{BackgroundColor3=col})
+        tw(Thumb,{Position=UDim2.new(1,-13,0.5,-5.5),BackgroundColor3=C.TEXT})
+        pcall(onOn); hudOn(hudKey,name,col)
+        notify("ACTIVÉ",name,"on")
+    end
+    local function deactivate()
+        on=false
+        tw(Btn,{BackgroundColor3=C.BG2})
+        tw(BS,{Color=C.BG3}); tw(Lbl,{TextColor3=C.TEXT})
+        tw(Track,{BackgroundColor3=C.BG3})
+        tw(Thumb,{Position=UDim2.new(0,2,0.5,-5.5),BackgroundColor3=C.SUB})
+        if onOff then pcall(onOff) end; hudOff(hudKey)
+        notify("DÉSACTIVÉ",name,"off")
+    end
+
     Btn.MouseButton1Click:Connect(function()
-        on = not on
-        if on then
-            tw(Btn,   {BackgroundColor3=Color3.fromRGB(18,12,36)})
-            tw(BStroke,{Color=col})
-            tw(Track,  {BackgroundColor3=col})
-            tw(Thumb,  {Position=UDim2.new(1,-15,0.5,-6), BackgroundColor3=C.TEXT})
-            SLbl.Text="ON"; SLbl.TextColor3=col
-            pcall(onOn)
-            notify("✦ Activé", name, "success")
-        else
-            tw(Btn,   {BackgroundColor3=C.BG2})
-            tw(BStroke,{Color=C.BG3})
-            tw(Track,  {BackgroundColor3=C.BG3})
-            tw(Thumb,  {Position=UDim2.new(0,3,0.5,-6), BackgroundColor3=C.SUB})
-            SLbl.Text="OFF"; SLbl.TextColor3=C.SUB
-            if onOff then pcall(onOff) end
-            notify("✦ Désactivé", name, "error")
-        end
+        if on then deactivate() else activate() end
     end)
-    return Btn
+    if kc then KB[kc]=function() if on then deactivate() else activate() end end end
 end
 
--- ====================================================
---   FACTORY BOUTON ACTION
--- ====================================================
-local function newButton(tab, name, emoji, col, action, order)
-    local Btn = Instance.new("TextButton", tab.cont)
-    Btn.Size=UDim2.new(1,0,0,46); Btn.BackgroundColor3=C.BG2
-    Btn.Text=""; Btn.BorderSizePixel=0; Btn.LayoutOrder=order or 0; corner(Btn,9)
-    uistroke(Btn, C.BG3, 1.5)
+local function newButton(tab,name,col,kc,action,order)
+    local Btn=Instance.new("TextButton",tab.scroll)
+    Btn.Size=UDim2.new(1,0,0,40); Btn.BackgroundColor3=C.BG2
+    Btn.Text=""; Btn.BorderSizePixel=0; Btn.LayoutOrder=order or 0; corner(Btn,8)
+    mkstroke(Btn,C.BG3,1.5)
 
-    local Ico = Instance.new("TextLabel", Btn)
-    Ico.Size=UDim2.new(0,34,1,0); Ico.Position=UDim2.new(0,7,0,0)
-    Ico.BackgroundTransparency=1; Ico.Text=emoji; Ico.TextSize=19; Ico.Font=FR; Ico.TextColor3=col
+    local Lbl=mklabel(Btn,name,12,FS,C.TEXT)
+    Lbl.Position=UDim2.new(0,10,0,0); Lbl.Size=UDim2.new(1,-70,1,0)
 
-    local Lbl = Instance.new("TextLabel", Btn)
-    Lbl.Size=UDim2.new(1,-60,1,0); Lbl.Position=UDim2.new(0,44,0,0)
-    Lbl.BackgroundTransparency=1; Lbl.Text=name
-    Lbl.TextSize=13; Lbl.Font=FS; Lbl.TextColor3=C.TEXT
-    Lbl.TextXAlignment=Enum.TextXAlignment.Left
+    local KBF=Instance.new("Frame",Btn)
+    KBF.Size=UDim2.new(0,28,0,15); KBF.Position=UDim2.new(1,-46,0.5,-7.5)
+    KBF.BackgroundColor3=C.BG3; KBF.BorderSizePixel=0; corner(KBF,3)
+    local KBL=mklabel(KBF,kbText(kc),8,FB,C.SUB)
+    KBL.TextXAlignment=Enum.TextXAlignment.Center
 
-    local Arrow = Instance.new("TextLabel", Btn)
-    Arrow.Size=UDim2.new(0,22,1,0); Arrow.Position=UDim2.new(1,-28,0,0)
-    Arrow.BackgroundTransparency=1; Arrow.Text="›"; Arrow.TextSize=22
-    Arrow.Font=FB; Arrow.TextColor3=C.SUB
+    local Arr=mklabel(Btn,"›",18,FB,C.SUB)
+    Arr.Size=UDim2.new(0,16,1,0); Arr.Position=UDim2.new(1,-20,0,0)
+    Arr.TextXAlignment=Enum.TextXAlignment.Center
 
     Btn.MouseEnter:Connect(function()
-        tw(Btn,  {BackgroundColor3=C.BG3})
-        tw(Lbl,  {TextColor3=col})
-        tw(Arrow,{TextColor3=col})
+        tw(Btn,{BackgroundColor3=C.BG3}); tw(Lbl,{TextColor3=col}); tw(Arr,{TextColor3=col})
     end)
     Btn.MouseLeave:Connect(function()
-        tw(Btn,  {BackgroundColor3=C.BG2})
-        tw(Lbl,  {TextColor3=C.TEXT})
-        tw(Arrow,{TextColor3=C.SUB})
+        tw(Btn,{BackgroundColor3=C.BG2}); tw(Lbl,{TextColor3=C.TEXT}); tw(Arr,{TextColor3=C.SUB})
     end)
     Btn.MouseButton1Click:Connect(function()
-        tw(Btn, {BackgroundColor3=col})
-        task.wait(0.1)
-        tw(Btn, {BackgroundColor3=C.BG2})
+        tw(Btn,{BackgroundColor3=col}); task.wait(0.09); tw(Btn,{BackgroundColor3=C.BG2})
         pcall(action)
     end)
-    return Btn
+    if kc then KB[kc]=function() pcall(action) end end
 end
 
--- ====================================================
---   CREATION DES ONGLETS
--- ====================================================
-local tabPlayer = newTab("Player",  "⚡")
-local tabWorld  = newTab("World",   "🌍")
-local tabMisc   = newTab("Misc",    "⚙️")
+-- ================================================================
+--   CREATE TABS
+-- ================================================================
+local tPlayer = newTab("PLAYER")
+local tVisual = newTab("VISUAL")
+local tWorld  = newTab("WORLD")
+local tServer = newTab("SERVER")
 
--- activer Player par défaut
-tabPlayer.btn.BackgroundColor3 = C.ACCENT
-tabPlayer.btn.TextColor3       = C.TEXT
-tabPlayer.cont.Visible         = true
+tPlayer.btn.BackgroundColor3=C.ACCENT; tPlayer.btn.TextColor3=C.TEXT
+tPlayer.scroll.Visible=true
 
--- ====================================================
---   ÉTAT GLOBAL
--- ====================================================
-local S = { noclip=false, infjump=false, autoheal=false }
+-- ================================================================
+--   TAB: PLAYER
+-- ================================================================
+newSection(tPlayer,"Mouvement",1)
 
--- ====================================================
---   TAB PLAYER
--- ====================================================
-newSection(tabPlayer, "Mouvement", 1)
+newToggle(tPlayer,"Speed  x10",C.ACCENT,"Speed",Enum.KeyCode.F1,
+function() LP.Character.Humanoid.WalkSpeed=160 end,
+function() if LP.Character then LP.Character.Humanoid.WalkSpeed=16 end end, 2)
 
-newToggle(tabPlayer,"Speed Hack  ×10","🚀",C.ACCENT, function()
-    LP.Character.Humanoid.WalkSpeed = 160
-end, function()
-    LP.Character.Humanoid.WalkSpeed = 16
-end, 2)
+newToggle(tPlayer,"Jump Power  x5",C.ACCENT2,"Jump",Enum.KeyCode.F2,
+function() LP.Character.Humanoid.JumpPower=150 end,
+function() if LP.Character then LP.Character.Humanoid.JumpPower=50 end end, 3)
 
-newToggle(tabPlayer,"Jump Power  ×5","⬆️",C.ACCENT2, function()
-    LP.Character.Humanoid.JumpPower = 150
-end, function()
-    LP.Character.Humanoid.JumpPower = 50
-end, 3)
-
-newToggle(tabPlayer,"Infinite Jump","🌙",C.PINK, function()
-    S.infjump = true
+newToggle(tPlayer,"Infinite Jump",C.PINK,"InfJump",Enum.KeyCode.F3,function()
+    S.infjump=true
     UserInputService.JumpRequest:Connect(function()
         if S.infjump and LP.Character then
             LP.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
         end
     end)
-end, function()
-    S.infjump = false
-end, 4)
+end,function() S.infjump=false end, 4)
 
-newToggle(tabPlayer,"No Clip","👻",Color3.fromRGB(140,90,255), function()
-    S.noclip = true
-end, function()
-    S.noclip = false
+newToggle(tPlayer,"No Clip",Color3.fromRGB(138,82,255),"NoClip",Enum.KeyCode.F4,
+function() S.noclip=true end,
+function()
+    S.noclip=false
     if LP.Character then
         for _,v in pairs(LP.Character:GetDescendants()) do
-            if v:IsA("BasePart") then v.CanCollide = true end
+            if v:IsA("BasePart") then v.CanCollide=true end
         end
     end
 end, 5)
 
-newSection(tabPlayer, "Combat", 6)
+newSection(tPlayer,"Vol",6)
 
-newToggle(tabPlayer,"God Mode","🛡️",C.YELLOW, function()
-    LP.Character.Humanoid.MaxHealth = math.huge
-    LP.Character.Humanoid.Health = math.huge
-end, function()
-    LP.Character.Humanoid.MaxHealth = 100
-    LP.Character.Humanoid.Health = 100
+local flyBV,flyBG,flyConn
+newToggle(tPlayer,"Fly Mode",C.CYAN,"Fly",Enum.KeyCode.F5,function()
+    S.fly=true
+    local char=LP.Character; if not char then return end
+    local hrp=char:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+    char.Humanoid.PlatformStand=true
+    flyBV=Instance.new("BodyVelocity",hrp)
+    flyBV.MaxForce=Vector3.new(1e9,1e9,1e9); flyBV.Velocity=Vector3.zero
+    flyBG=Instance.new("BodyGyro",hrp)
+    flyBG.MaxTorque=Vector3.new(1e9,1e9,1e9); flyBG.P=5e4; flyBG.CFrame=hrp.CFrame
+    flyConn=RunService.Heartbeat:Connect(function()
+        if not S.fly then return end
+        local dir=Vector3.zero; local cf=Cam.CFrame
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir=dir+cf.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir=dir-cf.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir=dir-cf.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir=dir+cf.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+        if dir.Magnitude>0 then dir=dir.Unit end
+        flyBV.Velocity=dir*50; flyBG.CFrame=cf
+    end)
+end,function()
+    S.fly=false
+    if flyConn then flyConn:Disconnect(); flyConn=nil end
+    if flyBV then flyBV:Destroy(); flyBV=nil end
+    if flyBG then flyBG:Destroy(); flyBG=nil end
+    if LP.Character then LP.Character.Humanoid.PlatformStand=false end
 end, 7)
 
-newToggle(tabPlayer,"Auto-Heal","💊",C.GREEN, function()
-    S.autoheal = true
+newSection(tPlayer,"Combat",8)
+
+newToggle(tPlayer,"God Mode",C.YELLOW,"God",Enum.KeyCode.F6,function()
+    S.god=true
+    LP.Character.Humanoid.MaxHealth=math.huge
+    LP.Character.Humanoid.Health=math.huge
+end,function()
+    S.god=false
+    if LP.Character then
+        LP.Character.Humanoid.MaxHealth=100
+        LP.Character.Humanoid.Health=100
+    end
+end, 9)
+
+newToggle(tPlayer,"Auto-Heal",C.GREEN,"AutoHeal",Enum.KeyCode.F7,function()
+    S.autoheal=true
     task.spawn(function()
         while S.autoheal do
             if LP.Character then
-                local h = LP.Character:FindFirstChildOfClass("Humanoid")
-                if h then h.Health = h.MaxHealth end
+                local h=LP.Character:FindFirstChildOfClass("Humanoid")
+                if h then h.Health=h.MaxHealth end
             end
-            task.wait(0.5)
+            task.wait(0.4)
         end
     end)
-end, function()
-    S.autoheal = false
-end, 8)
+end,function() S.autoheal=false end, 10)
 
-newSection(tabPlayer, "Téléport", 9)
+newSection(tPlayer,"Téléport",11)
 
-newButton(tabPlayer,"Téléport au Spawn","📍",C.PINK, function()
-    LP.Character.HumanoidRootPart.CFrame = CFrame.new(0,10,0)
-    notify("Téléporté !", "Au spawn (0, 10, 0)", "success")
-end, 10)
+newButton(tPlayer,"TP au Spawn",C.PINK,nil,function()
+    LP.Character.HumanoidRootPart.CFrame=CFrame.new(0,10,0)
+    notify("TÉLÉPORTÉ","Spawn (0,10,0)","on")
+end, 12)
 
--- ====================================================
---   TAB WORLD
--- ====================================================
-newSection(tabWorld, "Éclairage", 1)
+newButton(tPlayer,"TP au Curseur",C.PINK,nil,function()
+    local m=LP:GetMouse()
+    if m.Target then
+        LP.Character.HumanoidRootPart.CFrame=CFrame.new(m.Hit.Position+Vector3.new(0,3,0))
+        notify("TÉLÉPORTÉ","Position curseur","on")
+    end
+end, 13)
 
-newButton(tabWorld,"Midi ☀️","☀️",C.YELLOW, function()
-    game:GetService("Lighting").TimeOfDay = "12:00:00"
-    notify("Heure", "Midi activé", "success")
+-- ================================================================
+--   TAB: VISUAL
+-- ================================================================
+newSection(tVisual,"Rendu",1)
+
+newToggle(tVisual,"Fullbright",C.YELLOW,"Fullbright",Enum.KeyCode.F8,function()
+    S.fullbright=true
+    Lighting.Brightness=10; Lighting.ClockTime=14; Lighting.FogEnd=1e6
+    Lighting.GlobalShadows=false
+    Lighting.Ambient=Color3.new(1,1,1); Lighting.OutdoorAmbient=Color3.new(1,1,1)
+end,function()
+    S.fullbright=false
+    Lighting.Brightness=1; Lighting.GlobalShadows=true
+    Lighting.Ambient=Color3.fromRGB(127,127,127)
+    Lighting.OutdoorAmbient=Color3.fromRGB(127,127,127)
 end, 2)
 
-newButton(tabWorld,"Minuit 🌑","🌑",C.ACCENT, function()
-    game:GetService("Lighting").TimeOfDay = "00:00:00"
-    notify("Heure", "Minuit activé", "success")
+newToggle(tVisual,"Crosshair",C.PINK,"Crosshair",nil,function()
+    S.crosshair=true
+end,function()
+    S.crosshair=false
 end, 3)
 
-newButton(tabWorld,"Suppr. brouillard","🌤️",C.ACCENT2, function()
-    local L = game:GetService("Lighting")
-    L.FogEnd = 1e6; L.FogStart = 1e6
-    notify("Météo", "Brouillard effacé", "success")
-end, 4)
+-- Crosshair frames
+local CHA=Instance.new("Frame",Gui); CHA.Size=UDim2.new(0,16,0,1.5)
+CHA.Position=UDim2.new(0.5,-8,0.5,-0.75); CHA.BackgroundColor3=C.ACCENT2
+CHA.BorderSizePixel=0; CHA.Visible=false
+local CVA=Instance.new("Frame",Gui); CVA.Size=UDim2.new(0,1.5,0,16)
+CVA.Position=UDim2.new(0.5,-0.75,0.5,-8); CVA.BackgroundColor3=C.ACCENT2
+CVA.BorderSizePixel=0; CVA.Visible=false
+RunService.RenderStepped:Connect(function()
+    CHA.Visible=S.crosshair; CVA.Visible=S.crosshair
+end)
 
-newSection(tabWorld, "Gravité", 5)
+newSection(tVisual,"ESP",4)
 
-newButton(tabWorld,"Lune  (20%)","🌕",Color3.fromRGB(200,200,255), function()
-    game:GetService("Workspace").Gravity = 38
-    notify("Gravité", "Mode Lune !", "success")
-end, 6)
-
-newButton(tabWorld,"Normale","🌍",C.GREEN, function()
-    game:GetService("Workspace").Gravity = 196
-    notify("Gravité", "Restaurée", "success")
-end, 7)
-
-newButton(tabWorld,"Zéro G","🪐",C.PINK, function()
-    game:GetService("Workspace").Gravity = 0
-    notify("Gravité", "Zéro G !", "success")
-end, 8)
-
--- ====================================================
---   TAB MISC
--- ====================================================
-newSection(tabMisc, "Utilitaires", 1)
-
-newButton(tabMisc,"Recharger perso","🔄",C.ACCENT, function()
-    LP:LoadCharacter()
-    notify("Perso", "Rechargé", "success")
-end, 2)
-
-newButton(tabMisc,"Copier pseudo","📋",C.ACCENT2, function()
-    pcall(setclipboard, LP.Name)
-    notify("Copié !", LP.Name, "success")
-end, 3)
-
-newSection(tabMisc, "Danger Zone", 4)
-
-newButton(tabMisc,"Rejoindre (rejoin)","🔁",C.YELLOW, function()
-    game:GetService("TeleportService"):Teleport(game.PlaceId, LP)
+local espConns={}
+newToggle(tVisual,"Player ESP",C.ACCENT2,"ESP",Enum.KeyCode.F9,function()
+    S.esp=true
+    local function addESP(p)
+        if p==LP then return end
+        local function make()
+            if not p.Character then return end
+            local hrp=p.Character:FindFirstChild("HumanoidRootPart"); if not hrp then return end
+            if hrp:FindFirstChild("NOVA_ESP") then return end
+            local bb=Instance.new("BillboardGui",hrp); bb.Name="NOVA_ESP"
+            bb.Size=UDim2.new(0,80,0,22); bb.StudsOffset=Vector3.new(0,3.5,0); bb.AlwaysOnTop=true
+            local l=mklabel(bb,p.Name,12,FB,C.ACCENT2)
+            l.TextXAlignment=Enum.TextXAlignment.Center; l.TextStrokeTransparency=0.3
+        end
+        make()
+        espConns[p]=p.CharacterAdded:Connect(function() task.wait(0.5); make() end)
+    end
+    for _,p in pairs(Players:GetPlayers()) do addESP(p) end
+    espConns.__added=Players.PlayerAdded:Connect(addESP)
+end,function()
+    S.esp=false
+    for k,v in pairs(espConns) do
+        if typeof(v)=="RBXScriptConnection" then v:Disconnect() end
+        espConns[k]=nil
+    end
+    for _,p in pairs(Players:GetPlayers()) do
+        if p.Character then
+            local hrp=p.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then local b=hrp:FindFirstChild("NOVA_ESP"); if b then b:Destroy() end end
+        end
+    end
 end, 5)
 
-newButton(tabMisc,"Fermer le menu","❌",C.RED, function()
-    Gui:Destroy()
-end, 6)
+-- ================================================================
+--   TAB: WORLD
+-- ================================================================
+newSection(tWorld,"Éclairage",1)
 
--- ====================================================
---   NOCLIP LOOP
--- ====================================================
+newButton(tWorld,"Midi",C.YELLOW,nil,function()
+    Lighting.TimeOfDay="12:00:00"; notify("MONDE","Midi","on")
+end,2)
+newButton(tWorld,"Minuit",C.ACCENT,nil,function()
+    Lighting.TimeOfDay="00:00:00"; notify("MONDE","Minuit","on")
+end,3)
+newButton(tWorld,"Suppr. Brouillard",C.ACCENT2,nil,function()
+    Lighting.FogEnd=1e6; Lighting.FogStart=1e6; notify("MONDE","Brouillard supprimé","on")
+end,4)
+
+newSection(tWorld,"Gravité",5)
+
+newButton(tWorld,"Lune  (20%)",Color3.fromRGB(195,185,255),nil,function()
+    workspace.Gravity=38; notify("GRAVITÉ","Lune — 38","on")
+end,6)
+newButton(tWorld,"Normale",C.GREEN,nil,function()
+    workspace.Gravity=196; notify("GRAVITÉ","Normale — 196","on")
+end,7)
+newButton(tWorld,"Zéro G",C.PINK,nil,function()
+    workspace.Gravity=0; notify("GRAVITÉ","Zéro G","on")
+end,8)
+newButton(tWorld,"Super Heavy",C.ORANGE,nil,function()
+    workspace.Gravity=980; notify("GRAVITÉ","Super heavy — 980","on")
+end,9)
+
+-- ================================================================
+--   TAB: SERVER
+-- ================================================================
+newSection(tServer,"Utilitaires",1)
+
+newToggle(tServer,"Anti-AFK",C.GREEN,"AntiAFK",Enum.KeyCode.F10,function()
+    S.antiaafk=true
+    pcall(function()
+        local VU=game:GetService("VirtualUser")
+        LP.Idled:Connect(function()
+            if S.antiaafk then VU:Button2Down(Vector2.zero,CFrame.new()) end
+        end)
+    end)
+    task.spawn(function()
+        while S.antiaafk do LP:Move(Vector3.zero); task.wait(55) end
+    end)
+end,function() S.antiaafk=false end, 2)
+
+newButton(tServer,"Copier pseudo",C.ACCENT,nil,function()
+    pcall(setclipboard,LP.Name); notify("COPIÉ",LP.Name,"on")
+end,3)
+newButton(tServer,"Recharger perso",C.ACCENT2,nil,function()
+    LP:LoadCharacter(); notify("PERSO","Rechargé","on")
+end,4)
+newButton(tServer,"Rejoin",C.YELLOW,nil,function()
+    game:GetService("TeleportService"):Teleport(game.PlaceId,LP)
+end,5)
+
+newSection(tServer,"Exécuteur",6)
+
+local ExBg=Instance.new("Frame",tServer.scroll)
+ExBg.Size=UDim2.new(1,0,0,94); ExBg.BackgroundColor3=C.BG2
+ExBg.BorderSizePixel=0; ExBg.LayoutOrder=7; corner(ExBg,8); mkstroke(ExBg,C.BG3,1.5)
+
+local ExBox=Instance.new("TextBox",ExBg)
+ExBox.Size=UDim2.new(1,-10,0,68); ExBox.Position=UDim2.new(0,5,0,4)
+ExBox.BackgroundColor3=C.BG; ExBox.BorderSizePixel=0
+ExBox.PlaceholderText="-- Lua ici"; ExBox.Text=""
+ExBox.TextColor3=C.TEXT; ExBox.PlaceholderColor3=C.SUB
+ExBox.TextSize=10; ExBox.Font=FC
+ExBox.TextXAlignment=Enum.TextXAlignment.Left
+ExBox.TextYAlignment=Enum.TextYAlignment.Top
+ExBox.MultiLine=true; ExBox.ClearTextOnFocus=false; corner(ExBox,5)
+
+local ExBtn=Instance.new("TextButton",ExBg)
+ExBtn.Size=UDim2.new(1,-10,0,16); ExBtn.Position=UDim2.new(0,5,0,74)
+ExBtn.BackgroundColor3=C.ACCENT; ExBtn.Text="EXÉCUTER"
+ExBtn.TextSize=10; ExBtn.Font=FB; ExBtn.TextColor3=C.TEXT
+ExBtn.BorderSizePixel=0; corner(ExBtn,4)
+ExBtn.MouseButton1Click:Connect(function()
+    local fn,err=loadstring(ExBox.Text)
+    if fn then
+        local ok,runErr=pcall(fn)
+        if ok then notify("EXEC","Succès","on")
+        else notify("EXEC ERREUR",tostring(runErr),"off") end
+    else
+        notify("COMPILE ERREUR",tostring(err),"off")
+    end
+end)
+
+-- ================================================================
+--   RUNTIME LOOP
+-- ================================================================
 RunService.Stepped:Connect(function()
     if S.noclip and LP.Character then
         for _,v in pairs(LP.Character:GetDescendants()) do
-            if v:IsA("BasePart") then v.CanCollide = false end
+            if v:IsA("BasePart") then v.CanCollide=false end
         end
     end
 end)
 
--- ====================================================
---   DRAG
--- ====================================================
-local dragging, dragStart, startPos
+-- ================================================================
+--   DRAG MAIN PANEL
+-- ================================================================
+do
+    local drag,ds,sp=false
+    TopBar.InputBegan:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 then
+            drag=true; ds=i.Position; sp=Main.Position end end)
+    TopBar.InputEnded:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseButton1 then drag=false end end)
+    UserInputService.InputChanged:Connect(function(i)
+        if drag and i.UserInputType==Enum.UserInputType.MouseMovement then
+            local d=i.Position-ds
+            local np=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+            Main.Position=np; POS_SHOW=np
+        end
+    end)
+end
 
-TopBar.InputBegan:Connect(function(inp)
-    if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true; dragStart = inp.Position; startPos = Main.Position
-    end
-end)
-TopBar.InputEnded:Connect(function(inp)
-    if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-end)
-UserInputService.InputChanged:Connect(function(inp)
-    if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = inp.Position - dragStart
-        Main.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + d.X,
-            startPos.Y.Scale, startPos.Y.Offset + d.Y
-        )
-    end
-end)
-
--- ====================================================
---   KEYBIND : INSERT → toggle visibilité
--- ====================================================
-UserInputService.InputBegan:Connect(function(inp, gpe)
+-- ================================================================
+--   KEYBIND HANDLER
+-- ================================================================
+UserInputService.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
-    if inp.KeyCode == Enum.KeyCode.Insert then
-        Main.Visible = not Main.Visible
-    end
+    if inp.KeyCode==Enum.KeyCode.Insert then toggleMenu() end
+    if KB[inp.KeyCode] then KB[inp.KeyCode]() end
 end)
 
--- ====================================================
---   ANIMATION D'OUVERTURE
--- ====================================================
-tw(Main,
-    {Position = UDim2.new(0.5,-172,0.5,-234)},
-    TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-)
-
-notify("NOVA MENU", "Chargé  ✦  INSERT = toggle", "success")
-print("✦ NOVA MENU chargé | INSERT pour toggle")
+-- ================================================================
+--   BOOT
+-- ================================================================
+notify("NOVA MENU v2","INSERT = toggle  |  Tab droite = ouvrir","on")
+print("✦ NOVA MENU v2 loaded | github.com/kawaiifirecat/nova-menu")
